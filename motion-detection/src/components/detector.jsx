@@ -7,6 +7,9 @@ export const Detector = () => {
     const [cameras, setCameras] = useState([]);
 
     const handleClick = () => {
+
+        if (!loaded) return ;
+        
         // Getting the video element
         let video = document.getElementById('video');
         video.width = 480;
@@ -24,11 +27,12 @@ export const Detector = () => {
         let dst = new cv.Mat();
         let fg_mask = new cv.Mat();
         let fgbg = new cv.BackgroundSubtractorMOG2(100, 50, true);
+        let contours = new cv.MatVector();
+        let hierarchy = new cv.Mat();
 
         let cap = new cv.VideoCapture(video);
-        let faces = new cv.RectVector();
-        let classifier = new cv.CascadeClassifier();
-        classifier.load('haarcascade_frontalface_default.xml')
+
+        let once = true;
 
         // processing video
         const FPS = 30;
@@ -38,16 +42,20 @@ export const Detector = () => {
             cap.read(src);
             fgbg.apply(src, fg_mask);
             cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+            cv.threshold(fg_mask, fg_mask, 25, 255, cv.THRESH_BINARY);
 
-            classifier.detectMultiScale(dst, faces, 1.1, 3, 0);
-            for (let i = 0; i < faces.size(); i++) {
-                let roigray = dst.roi(faces.get(i));
-                let roisrc = src.roi(faces.get(i));
-                let point1 = new cv.Point(faces.get(i).x, faces.get(i).y);
-                let point2 = new cv.Point(faces.get(i).x + faces.get(i).width,
-                    faces.get(i).y + faces.get(i).height);
-                cv.rectangle(src, point1, point2, [255, 0, 0, 255]);
+            let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255));
 
+            cv.findContours(fg_mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+            cv.drawContours(dst, contours, -1, color, 1, cv.LINE_8, hierarchy, 100);
+            
+            if (once)
+            {
+                for (let contour in contours)
+                {
+                    console.log(contour);
+                }
+                once = false;
             }
 
             cv.imshow("canvasOutput", dst);
