@@ -1,39 +1,35 @@
-import cv2 as cv
-import numpy as np
+import cv2
 
-cap = cv.VideoCapture(1) # captures video from webcam
-if not cap.isOpened():
-    print("Error opening video stream or file")
-    exit(0)
+cap = cv2.VideoCapture(1)
 
-# background subtractor
-fgbg = cv.createBackgroundSubtractorKNN(history=10, dist2Threshold=75)
+ret, frame1 = cap.read()
+ret, frame2 = cap.read()
 
-while 1:
-    ret, frame = cap.read() # captures frame by frame
+while cap.isOpened():
 
-    if frame is None: break;
-
-    # gray = cv.flip(frame, 1) # flips frame horizontally
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY) # converts frame to grayscale
-    gray = fgbg.apply(gray) # applies background subtractor
-
-    # getting contours
-    contours, hierarchy = cv.findContours(gray, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    diff = cv2.absdiff(frame1, frame2)
+    gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, thresh = cv2.threshold(blur, 20, 255, cv2.THRESH_BINARY)
+    dilated = cv2.dilate(thresh, None, iterations=3)
+    contours, _ = cv2.findContours(dilated, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     for contour in contours:
-        # gets the bounding rectangle for each contour
-        x, y, w, h = cv.boundingRect(contour)
-        # draws rectangle around contours
-        if w*h >= 10000:
-            cv.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        (x, y, w, h) = cv2.boundingRect(contour)
 
-    # using numpy to convert frame to numpy array
-    frame = np.array(frame)
+        if cv2.contourArea(contour) < 1000:
+            continue
+        cv2.rectangle(frame1, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.putText(frame1, "Status: {}".format('Movement'), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
 
-    cv.imshow('Original', frame) # displays video
-    cv.imshow('blackscreen', gray) # displays videoqqq
+    # cv2.drawContours(frame1, contours, -1, (0, 255, 0), 2)
 
-    key = cv.waitKey(1)
-    if key == ord('q'):
+    cv2.imshow('frame', frame1)
+    frame1 = frame2
+    ret, frame2 = cap.read()
+
+    if cv2.waitKey(40) == 27:
         break
+
+cap.release()
+cv2.destroyAllWindows()
